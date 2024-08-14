@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>直播信息获取</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <style>
+    .input-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    #input_url {
+      flex: 1;
+      margin-right: 10px;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #ff5722;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      width: 80%;
+      max-width: 300px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 8px 20px;
+      background-color: #ff5722;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #e64a19;
+    }
+
+    hr {
+      border: 0;
+      height: 1px;
+      width: 100%;
+      background-color: #ccc;
+      margin: 20px 0;
+    }
+
+    #task_list {
+      width: 80%;
+      max-width: 1200px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 10px;
+      justify-content: center;
+    }
+
+    #task_list div {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fff;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #task_list p {
+      margin: 5px 0;
+    }
+
+    a {
+      color: #ff5722;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* 弹幕容器样式 */
+    #danmuContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: hidden; /* 防止弹幕溢出 */
+      z-index: 1000; /* 确保弹幕在最上层 */
+    }
+
+    .danmu {
+      position: absolute;
+      white-space: nowrap;
+      color: black;
+      font-size: 18px;
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+
+  <script>
+    function createTask() {
+      const input_url = document.getElementById('input_url').value;
+
+      if (input_url === '') {
+        alert('直播间地址不能为空！');
+        return;
+      }
+
+      fetch('/create_task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `input_url=${input_url}`
+      })
+      .then(response => response.json())
+      .then(data => {
+          alert(data.message);
+          fetchTasks();
+      });
+    }
+
+    function fetchTasks() {
+      fetch('/tasks')
+      .then(response => response.json())
+      .then(data => {
+          const taskList = document.getElementById('task_list');
+          const danmuContainer = document.getElementById('danmuContainer');
+          taskList.innerHTML = '';
+
+          for (const [taskId, taskInfo] of Object.entries(data)) {
+            if (taskId === "弹幕") {
+                // Handle danmu display
+                if (Array.isArray(taskInfo.dm)) {
+                    taskInfo.dm.forEach(danmuText => {
+                        createDanmu(danmuText);
+                    });
+                }
+                continue;
+            }
+            const taskRow = document.createElement('div');
+            const playUrl = `${window.location.origin}/play?flv=${taskInfo.flv_pull_url}&hls=${taskInfo.hls_pull_url}&web=${taskInfo.nickname}`;
+            const DownloadUrl = `${window.location.origin}/task/${taskId}`;
+            taskRow.innerHTML = `
+                <p style="color: red;">任务 ID: ${taskId}</p>
+                ${taskInfo.nickname ? `<p style="color: red;">${taskInfo.nickname}</p>` : ''}
+                <p style="color: red;">任务状态: ${taskInfo.status}</p>
+                <p style="color: red;">上次运行时间:</p>
+                <p style="color: black;">${taskInfo.start_time}</p>
+                ${taskInfo.stop_time ? `<p style="color: red;">结束时间:</p><p style="color: black;">${taskInfo.stop_time}</p>` : ''}
+                ${taskInfo.people_counting ? `<p style="color: red;">直播间人数:</p><p style="color: black;">${taskInfo.people_counting}</p>` : ''}
+                ${taskInfo.files ? `<p><a href="${DownloadUrl}" id="DownloadUrl" target="_self" one-link-mark="yes">下载弹幕</a></p>` : ''}
+                ${taskInfo.flv_pull_url ? `<p><a href="${playUrl}" id="play_url" target="_blank" one-link-mark="yes">播放直播</a></p>` : ''}
+                ${taskInfo.pull_url ? `<p><a href=${taskInfo.pull_url} id="flv_pull_url" target="_blank" one-link-mark="yes">拉流地址</a></p>` : ''}
+                ${taskInfo.share_url ? `<p><a href=${taskInfo.share_url} id="share_url" target="_blank" one-link-mark="yes">进入直播间</a></p>` : ''}
+                <button onclick="stopTask(${taskId})" style="display: ${taskInfo.status !== '运行中~' && taskInfo.status !== '监控开播中~' ? 'none' : 'block'}">停止任务</button>
+            `;
+            taskList.appendChild(taskRow);
+          }
+      });
+    }
+
+    function stopTask(taskId) {
+      fetch(`/stop_task/${taskId}`, { method: 'POST' })
+      .then(response => response.json())
+      .then(data => {
+          alert(data.message);
+          fetchTasks();
+      });
+    }
+
+    function createDanmu(text) {
+      const danmuContainer = document.getElementById('danmuContainer');
+      const danmuElement = document.createElement('div');
+      danmuElement.className = 'danmu';
+      danmuElement.textContent = text;
+      danmuContainer.appendChild(danmuElement);
+
+      const containerWidth = danmuContainer.offsetWidth;
+      const danmuWidth = danmuElement.offsetWidth;
+
+      // 随机生成初始位置
+      const startPosition = containerWidth + Math.random() * containerWidth;
+      const endPosition = -danmuWidth;
+
+      danmuElement.style.left = startPosition + 'px';
+
+      const randomTop = Math.random() * (danmuContainer.offsetHeight - 18); // 弹幕的随机高度
+      danmuElement.style.top = randomTop + 'px';
+
+      const duration = (startPosition - endPosition) / 100;
+      danmuElement.style.transition = `left ${duration}s linear`;
+
+      setTimeout(() => {
+        danmuElement.style.left = endPosition + 'px';
+      }, 10);
+
+      // 弹幕消失后移除元素
+      setTimeout(() => {
+        danmuElement.remove();
+      }, duration * 1000);
+    }
+
+
+    window.onload = function() {
+      fetchTasks();
+      setInterval(fetchTasks, 4000); // 每4秒刷新任务列表和弹幕
+    };
+  </script>
+</head>
+
+<body>
+  <div class="input-container">
+    <input type="text" id="input_url" placeholder="输入直播间链接">
+    <button onclick="createTask()">创建任务</button>
+  </div>
+  <hr>
+  <div id="task_list"></div>
+
+  <!-- 弹幕容器 -->
+  <div id="danmuContainer"></div>
+</body>
+
+</html>

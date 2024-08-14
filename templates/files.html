@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ nickname }} 弹幕</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #ff5722;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        a {
+            color: #ff5722;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        li {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            width: 100%;
+            background-color: #ccc;
+            margin: 20px 0;
+        }
+
+        .return-link {
+            display: block;
+            margin-top: 20px;
+            padding: 8px 20px;
+            background-color: #ff5722;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .return-link:hover {
+            background-color: #e64a19;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>{{ nickname }} 弹幕列表</h1>
+    <ul>
+        {% for file_path in files %}
+            <li>
+                <a href="{{ url_for('download_file', task_id=task_id, filename=file_path.split('/')[-1]) }}">
+                     {{ file_path.split('/')[-1] }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('index') }}" class="return-link">返回任务列表</a>
+</body>
+
+</html>

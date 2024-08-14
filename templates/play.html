@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{web_name}}</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <script src="{{ url_for('static', filename='hls.js') }}"></script>
+    <script src="{{ url_for('static', filename='flv.js') }}"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: black;
+        }
+        #videoContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #videoElement {
+            width: 100%;
+            height: 100%;
+        }
+        #danmuContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 确保弹幕不会阻挡其他元素的交互 */
+            z-index: 1000; /* 保证弹幕显示在视频之上 */
+        }
+        .danmu {
+            position: absolute;
+            white-space: nowrap;
+            color: white;
+            font-size: 24px;
+            pointer-events: none;
+            user-select: none;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="videoElement" controls></video>
+        <!-- 弹幕容器 -->
+        <div id="danmuContainer"></div>
+    </div>
+    <script>
+        const flvUrl = "{{ flv | safe }}";
+        const hlsUrl = "{{ hls | safe }}";
+        const videoElement = document.getElementById('videoElement');
+        const danmuContainer = document.getElementById('danmuContainer');
+
+        if (flvUrl) {
+            if (flvjs.isSupported()) {
+                // 优先尝试 FLV
+                const flvPlayer = flvjs.createPlayer({
+                    type: 'flv',
+                    url: flvUrl
+                });
+                flvPlayer.attachMediaElement(videoElement);
+                flvPlayer.load();
+                flvPlayer.play();
+            } else {
+                // 如果浏览器不支持 FLV，但支持 HLS
+                playHLS();
+            }
+        } else {
+            playHLS();
+        }
+
+        function playHLS() {
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(videoElement);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    videoElement.play();
+                });
+            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                // 处理 HLS 的情况下，浏览器支持 MSE (Media Source Extensions)
+                videoElement.src = hlsUrl;
+                videoElement.addEventListener('loadedmetadata', function() {
+                    videoElement.play();
+                });
+            } else {
+                alert('您的浏览器不支持 FLV 或 HLS 格式！');
+            }
+        }
+
+        // 从后端获取弹幕数据
+        async function fetchDanmu() {
+            try {
+                const response = await fetch('/api/danmu');
+                const danmuData = await response.json();
+                danmuData.forEach(text => createDanmu(text));
+            } catch (error) {
+                console.error('无法获取弹幕数据:', error);
+            }
+        }
+
+        function createDanmu(text) {
+            const danmuElement = document.createElement('div');
+            danmuElement.className = 'danmu';
+            danmuElement.textContent = text;
+            danmuContainer.appendChild(danmuElement);
+
+            const containerWidth = danmuContainer.offsetWidth;
+            const danmuWidth = danmuElement.offsetWidth;
+            const startPosition = containerWidth;
+            const endPosition = -danmuWidth;
+
+            danmuElement.style.left = startPosition + 'px';
+
+            // 增加随机高度幅度
+            const containerHeight = danmuContainer.offsetHeight;
+            const danmuHeight = danmuElement.offsetHeight;
+            const maxHeight = containerHeight - danmuHeight;
+            const randomTop = Math.random() * maxHeight;
+            danmuElement.style.top = randomTop + 'px';
+
+            const duration = (startPosition - endPosition) / 100; // 根据弹幕文本长度调整速度
+            danmuElement.style.transition = `left ${duration}s linear`;
+
+            setTimeout(() => {
+                danmuElement.style.left = endPosition + 'px';
+            }, 10); // 设置为非0值以确保样式生效
+
+            // 移除弹幕元素
+            setTimeout(() => {
+                danmuElement.remove();
+            }, duration * 1000);
+        }
+
+        // 每隔3秒获取一次最新弹幕数据
+        setInterval(fetchDanmu, 3000);
+
+        // 初始获取弹幕
+        fetchDanmu();
+
+        // 监听全屏事件
+        document.addEventListener('fullscreenchange', adjustDanmuContainer);
+        document.addEventListener('webkitfullscreenchange', adjustDanmuContainer);
+        document.addEventListener('mozfullscreenchange', adjustDanmuContainer);
+        document.addEventListener('msfullscreenchange', adjustDanmuContainer);
+
+        function adjustDanmuContainer() {
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+                // 进入全屏模式，调整弹幕容器大小
+                danmuContainer.style.width = '100%';
+                danmuContainer.style.height = '100%';
+            } else {
+                // 退出全屏模式，恢复弹幕容器大小
+                danmuContainer.style.width = '';
+                danmuContainer.style.height = '';
+            }
+        }
+    </script>
+</body>
+</html>
