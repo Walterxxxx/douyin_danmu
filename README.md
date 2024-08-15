@@ -33,5 +33,6 @@ https://dy.lingjinglive.com
 ![Snipaste_2024-08-15_01-02-55](https://github.com/user-attachments/assets/1cae44ef-8184-45e9-ae66-d2925634bc91)
 
 
-#捐赠：
+#捐赠
+
 ![Snipaste_2024-08-15_01-06-42](https://github.com/user-attachments/assets/b9354166-7fc2-4eff-bdfd-599d101738eb)
