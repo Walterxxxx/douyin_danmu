@@ -1,6 +1,9 @@
 # douyin_danmu
 监控某音直播间开播，并记录直播间内所有用户发送的弹幕到Excel,带有web管理界面，自动监控开播。
 
+本项目基于DouyinLiveWebFetcher开发改进，大部分代码是用ChatGPT生成修改改进
+
+https://github.com/saermart/DouyinLiveWebFetcher
 
 ## 环境：
 macbook
